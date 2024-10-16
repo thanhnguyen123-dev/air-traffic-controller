@@ -1,0 +1,3 @@
+-p 2310 -t basic-4.input1,basic-4.input2 -e basic-4.exp -- -n 1 -- 1
+
+# Test a sequence of clients connecting and disconnecting

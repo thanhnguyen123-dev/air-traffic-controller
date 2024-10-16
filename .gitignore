@@ -1,0 +1,26 @@
+# Exclude everything
+*
+# Don't exclude folders (recursively)
+!/**/
+# Don't exclude files with dots in them
+!*.*
+# Don't exclude Makefile s
+!*Makefile*
+
+*.elf
+*.bin
+*.o
+*.exe
+*.dylib
+*.so
+
+*/*.dSYM/
+
+output/
+
+# files & folders you don't want in the repo
+.DS_Store
+Desktop.ini
+._*
+.Spotlight-V100
+.Trashes

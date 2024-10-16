@@ -1,0 +1,1 @@
+-p 8002 -t basic-6.input1,basic-6.input2 -e basic-6.exp -- -n 1 -- 1

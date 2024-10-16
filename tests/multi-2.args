@@ -1,0 +1,1 @@
+-t multi-2.input1,multi-2.input2,multi-2.input3 -e multi-2.exp -- -n 5 -- 10,5,2,10,1

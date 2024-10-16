@@ -1,0 +1,5 @@
+-p 5062 -c -t concurrent-3.input1,concurrent-3.input2 -- -n 1 -- 5
+
+# Note that as the possible schedules for this test case are non-deterministic,
+# we only check that the server did not crash, so there is no expected output
+# file. 

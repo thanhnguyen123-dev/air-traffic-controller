@@ -1,0 +1,13 @@
+Error: Airport -23 does not exist
+Error: Invalid 'duration' value (900)
+Error: Invalid 'earliest' time (-1)
+Error: Invalid 'duration' value (-1)
+Error: Invalid 'duration' value (5)
+Error: Airport -3 does not exist
+Error: Airport 512 does not exist
+PLANE 1234 not scheduled at airport 0
+Error: Airport 8 does not exist
+Error: Invalid request provided
+Error: Invalid request provided
+Error: Invalid request provided
+Error: Invalid request provided
