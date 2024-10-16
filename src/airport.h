@@ -8,6 +8,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef ENABLE_LOG
+#define LOG(...)                                     \
+  do {                                               \
+    fprintf(stderr, "[" __FILE__ ":%d] ", __LINE__); \
+    fprintf(stderr, __VA_ARGS__);                    \
+  } while (0)
+
+#else
+#define LOG(...)
+#endif
+
 /* Each gate schedules is broken up into 48 half-hour time slots. */
 #define NUM_TIME_SLOTS 48
 
@@ -33,7 +44,6 @@ struct time_slot_t {
 };
 
 typedef struct time_slot_t time_slot_t;
-
 
 /** This `gate_t` structure is currently just a wrapper for an array of time
  *  slots. We define it like this to make it easy to include any necessary extra
