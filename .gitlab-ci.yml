@@ -49,7 +49,7 @@ build:controller:
       - send_requests.sh
   script:
     - cp -f -r /data/assignment-2/tests "$CI_PROJECT_DIR/tests"
-    - cp -f -r /data/assignment-2/base/run_tests.sh "$CI_PROJECT_DIR/run-tests.sh"
+    - cp -f -r /data/assignment-2/base/run_tests.sh "$CI_PROJECT_DIR/run_tests.sh"
     - cp -f -r /data/assignment-2/base/send_requests.sh "$CI_PROJECT_DIR/send_requests.sh"
     - make clean
     - make controller
