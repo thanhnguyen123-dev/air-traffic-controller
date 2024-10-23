@@ -39,9 +39,42 @@ controller_params_t ATC_INFO;
  */
 void controller_server_loop(void) {
   int listenfd = ATC_INFO.listenfd;
+  int connfd, airport_id;
+  char buf[MAXLINE], response[MAXLINE], port_str[PORT_STRLEN];
+  rio_t rio, airport_rio;
+  struct sockaddr_storage clientaddr;
+  socklen_t clientlen = sizeof(struct sockaddr_storage);
   /** TODO: implement this function! */
   while (1) {
     /* ... */
+    connfd = accept(listenfd, (SA *) &clientaddr, &clientlen);
+    rio_readinitb(&rio, connfd);
+
+    while (rio_readlineb(&rio, buf, MAXLINE) > 0) {
+      sscanf(buf, "%d", &airport_id);
+
+      if (airport_id >= 0 && airport_id < ATC_INFO.num_airports) {
+        snprintf(port_str, PORT_STRLEN, "%d", ATC_INFO.airport_nodes[airport_id].port);
+        int airport_fd = open_clientfd("localhost", port_str);
+
+        rio_readinitb(&airport_rio, airport_fd);
+
+        rio_writen(airport_fd, buf, strlen(buf));
+        rio_writen(airport_fd, "\n", 1);
+        
+        ssize_t n;
+        while ((n = rio_readlineb(&airport_rio, response, MAXLINE)) > 0) {
+          rio_writen(connfd, response, n);
+        }
+        
+        close(airport_fd);
+      }
+      else {
+        sprintf(response, "Error: Airport %d does not exist\n", airport_id);
+        rio_writen(connfd, response, strlen(response));
+      }
+    }
+    close(connfd);
   }
 }
 

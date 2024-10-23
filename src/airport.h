@@ -205,4 +205,9 @@ time_info_t schedule_plane(int plane_id, int start, int duration, int fuel);
  */
 void airport_node_loop(int listenfd);
 
+void process_request(char *request_buf, int connfd);
+void process_schedule(int *args, char *response);
+void process_plane_status(int *args, char *response);
+void process_time_status(int *args, char *response);
+
 #endif

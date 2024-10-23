@@ -145,7 +145,183 @@ void initialise_node(int airport_id, int num_gates, int listenfd) {
 
 void airport_node_loop(int listenfd) {
   /** TODO: implement the main server loop for an individual airport node here. */
+  int connfd;
+  char buf[MAXLINE];
+  rio_t rio;
+  struct sockaddr_storage clientaddr;
+  socklen_t clientlen = sizeof(struct sockaddr_storage);
+
   while (1) {
     /* ... */
+    if ((connfd = accept(listenfd, (SA *)&clientaddr, &clientlen)) < 0) {
+      perror("accept");
+      continue;
+    }
+
+    rio_readinitb(&rio, connfd);
+    ssize_t n;
+    while ((n = rio_readlineb(&rio, buf, MAXLINE)) > 0) {
+      buf[n] = '\0';
+      if (strcmp(buf, "\n") == 0) {
+        break;
+      }
+      process_request(buf, connfd);
+    }
+
+    close(connfd);
+
   }
 }
+
+void process_request(char *request_buf, int connfd) {
+  char response[MAXLINE];
+  char *token;
+  char *rest_ptr;
+  int args_cnt = 0;
+  int args[5] = {0};
+
+  token = strtok_r(request_buf, " \n", &rest_ptr);
+  if (token == NULL) {
+    snprintf(response, MAXLINE, "Error: Invalid request provided\n");
+    rio_writen(connfd, response, strlen(response));
+    return;
+  }
+
+  char *command = token;
+
+  while ((token = strtok_r(NULL, " \n", &rest_ptr)) != NULL) {
+    args[args_cnt] = atoi(token);
+    args_cnt++;
+  }
+
+
+  if (strcmp(command, "SCHEDULE") == 0) {
+    if (args_cnt == 5) {
+      process_schedule(args, response);
+    }
+    else {
+      snprintf(response, MAXLINE, "Error: Invalid request provided\n");
+    }
+  }
+
+  else if (strcmp(command, "PLANE_STATUS") == 0) {
+    if (args_cnt == 2) {
+      process_plane_status(args, response);
+    }
+    else {
+      snprintf(response, MAXLINE, "Error: Invalid request provided\n");
+    }
+  }
+
+  else if (strcmp(command, "TIME_STATUS") == 0) {
+    if (args_cnt == 4) {
+      process_time_status(args, response);
+    }
+    else {
+      snprintf(response, MAXLINE, "Error: Invalid request provided\n");
+    }
+  }
+
+  else {
+    snprintf(response, MAXLINE, "Error: Invalid request provided\n");
+  }
+
+  rio_writen(connfd, response, strlen(response));
+}
+
+void process_schedule(int *args, char *response) {
+  int airport_num = args[0];
+  int plane_id = args[1];
+  int earliest_time = args[2]; 
+  int duration = args[3];
+  int fuel = args[4];
+
+  if (airport_num != AIRPORT_ID) {
+    snprintf(response, MAXLINE, "Airport %d does not exist\n", airport_num);
+    return;
+  }
+
+  time_info_t time_info = schedule_plane(plane_id, earliest_time, duration, fuel);
+
+  if (time_info.start_time != -1) {
+    snprintf(response, MAXLINE, "SCHEDULED %d at GATE %d: %02d:%02d-%02d:%02d\n", 
+      plane_id, time_info.gate_number, 
+      IDX_TO_HOUR(time_info.start_time), IDX_TO_MINS(time_info.start_time),
+      IDX_TO_HOUR(time_info.end_time), IDX_TO_MINS(time_info.end_time));
+  }
+  else {
+    snprintf(response, MAXLINE, "Error: Cannot schedule %d\n", plane_id);
+  }
+}
+
+void process_plane_status(int *args, char *response) {
+  int airport_num = args[0];
+  int plane_id = args[1];
+
+  if (airport_num != AIRPORT_ID) {
+    snprintf(response, MAXLINE, "Airport %d does not exist\n", airport_num);
+    return;
+  }
+
+  time_info_t time_info = lookup_plane_in_airport(plane_id);
+
+  if (time_info.start_time != -1) {
+    snprintf(response, MAXLINE, "PLANE %d scheduled at GATE %d: %02d:%02d-%02d:%02d\n",
+      plane_id, time_info.gate_number, 
+      IDX_TO_HOUR(time_info.start_time), IDX_TO_MINS(time_info.start_time),
+      IDX_TO_HOUR(time_info.end_time), IDX_TO_MINS(time_info.end_time));
+  }
+  else {
+    snprintf(response, MAXLINE, "PLANE %d not scheduled at airport %d\n", plane_id, airport_num);
+  }
+}
+
+void process_time_status(int *args, char *response) {
+  int airport_num = args[0];
+  int gate_num = args[1];
+  int start_idx = args[2];
+  int duration = args[3];
+
+  if (airport_num != AIRPORT_ID) {
+    snprintf(response, MAXLINE, "Airport %d does not exist\n", airport_num);
+    return;
+  }
+
+  gate_t *gate = get_gate_by_idx(gate_num);
+  if (gate == NULL) {
+    snprintf(response, MAXLINE, "Error: Invalid 'gate' value (%d)\n", gate_num);
+    return;
+  }
+
+  char status_str[MAXLINE] = "";
+  char temp[100];
+  size_t status_str_len = 0;
+  size_t remaining_space = MAXLINE - 1;
+
+  for (int i = start_idx; i <= start_idx + duration && i < NUM_TIME_SLOTS; i++) {
+    time_slot_t *slot = get_time_slot_by_idx(gate, i);
+    if (slot == NULL) {
+      snprintf(response, MAXLINE, "Error: Invalid request provided\n");
+      return;
+    }
+
+    char status = (slot->status == 1) ? 'A' : 'F';
+    int flight_id = (slot->status == 1) ? slot->plane_id : 0;
+
+    int n = snprintf(temp, sizeof(temp), "AIRPORT %d GATE %d %02d:%02d: %c - %d\n", 
+      AIRPORT_ID, gate_num, IDX_TO_HOUR(i), IDX_TO_MINS(i), status, flight_id);
+
+    if (n >= remaining_space) {
+      strncat(status_str, temp, remaining_space);
+      break;
+    }
+    else {
+      strcat(status_str, temp);
+      status_str_len += n;
+      remaining_space -= n;
+    }
+  }
+  strcpy(response, status_str);
+}
+
+
