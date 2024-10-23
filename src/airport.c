@@ -237,7 +237,17 @@ void process_schedule(int *args, char *response) {
   int fuel = args[4];
 
   if (airport_num != AIRPORT_ID) {
-    snprintf(response, MAXLINE, "Airport %d does not exist\n", airport_num);
+    snprintf(response, MAXLINE, "Error: Airport %d does not exist\n", airport_num);
+    return;
+  }
+
+  if (earliest_time < 0 || earliest_time >= NUM_TIME_SLOTS) {
+    snprintf(response, MAXLINE, "Error: Invalid 'earliest' time (%d)\n", earliest_time);
+    return;
+  }
+
+  if (duration < 0 || duration >= NUM_TIME_SLOTS || earliest_time + duration >= NUM_TIME_SLOTS) {
+    snprintf(response, MAXLINE, "Error: Invalid 'duration' value (%d)\n", duration);
     return;
   }
 
@@ -259,7 +269,7 @@ void process_plane_status(int *args, char *response) {
   int plane_id = args[1];
 
   if (airport_num != AIRPORT_ID) {
-    snprintf(response, MAXLINE, "Airport %d does not exist\n", airport_num);
+    snprintf(response, MAXLINE, "Error: Airport %d does not exist\n", airport_num);
     return;
   }
 
@@ -283,9 +293,20 @@ void process_time_status(int *args, char *response) {
   int duration = args[3];
 
   if (airport_num != AIRPORT_ID) {
-    snprintf(response, MAXLINE, "Airport %d does not exist\n", airport_num);
+    snprintf(response, MAXLINE, "Error: Airport %d does not exist\n", airport_num);
     return;
   }
+
+  if (gate_num < 0 || gate_num >= AIRPORT_DATA->num_gates) {
+    snprintf(response, MAXLINE, "Error: Invalid 'gate' value (%d)\n", gate_num);
+    return;
+  }
+
+  if (duration < 0 || duration >= NUM_TIME_SLOTS || start_idx + duration >= NUM_TIME_SLOTS) {
+    snprintf(response, MAXLINE, "Error: Invalid 'duration' value (%d)\n", duration);
+    return;
+  }
+
 
   gate_t *gate = get_gate_by_idx(gate_num);
   if (gate == NULL) {
