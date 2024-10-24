@@ -54,8 +54,20 @@ void controller_server_loop(void) {
     rio_readinitb(&rio, connfd);
 
     while (rio_readlineb(&rio, buf, MAXLINE) > 0) {
-      // ignore command arg 
-      sscanf(buf, "%*s %d", &airport_id);
+      char command[20];
+      int args[5];
+      int toks_cnt = sscanf(buf, "%s %d %d %d %d %d", command, &args[0], &args[1], &args[2], &args[3], &args[4]);
+
+      if (is_valid_schedule_request(command, toks_cnt) ||
+          is_valid_plane_status_request(command, toks_cnt) ||
+          is_valid_time_status_request(command, toks_cnt)) {
+        airport_id = args[0];
+      }
+      else {
+        sprintf(response, "Error: Invalid request provided\n");
+        rio_writen(connfd, response, strlen(response));
+        continue;
+      }
 
       if (airport_id >= 0 && airport_id < ATC_INFO.num_airports) {
         snprintf(port_str, PORT_STRLEN, "%d", ATC_INFO.airport_nodes[airport_id].port);

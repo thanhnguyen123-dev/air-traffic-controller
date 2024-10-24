@@ -175,35 +175,21 @@ void airport_node_loop(int listenfd) {
 
 void process_request(char *request_buf, int connfd) {
   char response[MAXBUF];
-  char *token;
-  char *rest_ptr;
-  int args_cnt = 0;
-  int args[5] = {0};
-
-  token = strtok_r(request_buf, " \n", &rest_ptr);
-  if (token == NULL) {
-    snprintf(response, MAXLINE, "Error: Invalid request provided\n");
-    rio_writen(connfd, response, strlen(response));
-    return;
-  }
-
-  char *command = token;
-
-  while ((token = strtok_r(NULL, " \n", &rest_ptr)) != NULL) {
-    args[args_cnt] = atoi(token);
-    args_cnt++;
-  }
+  char command[20];
+  int args[5];
+  int toks_cnt;
+  toks_cnt = sscanf(request_buf, "%s %d %d %d %d %d", command, &args[0], &args[1], &args[2], &args[3], &args[4]);
 
 
-  if (strcmp(command, "SCHEDULE") == 0 && args_cnt == 5) {
+  if (is_valid_schedule_request(command, toks_cnt)) {
     process_schedule(args, response);
   }
 
-  else if (strcmp(command, "PLANE_STATUS") == 0 && args_cnt == 2) {
+  else if (is_valid_plane_status_request(command, toks_cnt)) {
     process_plane_status(args, response);
   }
 
-  else if (strcmp(command, "TIME_STATUS") == 0 && args_cnt == 4) {
+  else if (is_valid_time_status_request(command, toks_cnt)) {
     process_time_status(args, response);
   }
 
@@ -304,6 +290,18 @@ void process_time_status(int *args, char *response) {
     strcat(status_str, line);
   }
   strcpy(response, status_str);
+}
+
+int is_valid_schedule_request(char *command, int toks_cnt) {
+  return strcmp(command, "SCHEDULE") == 0 && toks_cnt == 6;
+}
+
+int is_valid_plane_status_request(char *command, int toks_cnt) {
+  return strcmp(command, "PLANE_STATUS") == 0 && toks_cnt == 3;
+}
+
+int is_valid_time_status_request(char *command, int toks_cnt) {
+  return strcmp(command, "TIME_STATUS") == 0 && toks_cnt == 5;
 }
 
 

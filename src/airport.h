@@ -209,5 +209,8 @@ void process_request(char *request_buf, int connfd);
 void process_schedule(int *args, char *response);
 void process_plane_status(int *args, char *response);
 void process_time_status(int *args, char *response);
+int is_valid_schedule_request(char *command, int toks_cnt);
+int is_valid_plane_status_request(char *command, int toks_cnt);
+int is_valid_time_status_request(char *command, int toks_cnt);
 
 #endif
