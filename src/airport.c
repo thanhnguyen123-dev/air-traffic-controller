@@ -146,7 +146,7 @@ void initialise_node(int airport_id, int num_gates, int listenfd) {
 void airport_node_loop(int listenfd) {
   /** TODO: implement the main server loop for an individual airport node here. */
   int connfd;
-  char buf[MAXLINE];
+  char buf[MAXBUF];
   rio_t rio;
   struct sockaddr_storage clientaddr;
   socklen_t clientlen = sizeof(struct sockaddr_storage);
@@ -174,7 +174,7 @@ void airport_node_loop(int listenfd) {
 }
 
 void process_request(char *request_buf, int connfd) {
-  char response[MAXLINE * 5];
+  char response[MAXBUF];
   char *token;
   char *rest_ptr;
   int args_cnt = 0;
@@ -314,10 +314,8 @@ void process_time_status(int *args, char *response) {
     return;
   }
 
-  char status_str[MAXLINE * 10] = "";
-  char temp[MAXLINE];
+  char status_str[MAXBUF] = "";
   int end_idx = start_idx + duration;
-  if (end_idx >= NUM_TIME_SLOTS) end_idx = NUM_TIME_SLOTS - 1;
 
   for (int i = start_idx; i <= end_idx; i++) {
     time_slot_t *slot = get_time_slot_by_idx(gate, i);
@@ -329,10 +327,11 @@ void process_time_status(int *args, char *response) {
     char status = (slot->status == 1) ? 'A' : 'F';
     int flight_id = (slot->status == 1) ? slot->plane_id : 0;
 
-    snprintf(temp, sizeof(temp), "AIRPORT %d GATE %d %02d:%02d: %c - %d\n", 
+    char line[MAXLINE];
+    snprintf(line, sizeof(line), "AIRPORT %d GATE %d %02d:%02d: %c - %d\n", 
       AIRPORT_ID, gate_num, IDX_TO_HOUR(i), IDX_TO_MINS(i), status, flight_id);
 
-    strcat(status_str, temp);
+    strcat(status_str, line);
   }
   strcpy(response, status_str);
 }
