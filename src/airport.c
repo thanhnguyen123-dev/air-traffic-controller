@@ -174,7 +174,7 @@ void airport_node_loop(int listenfd) {
 }
 
 void process_request(char *request_buf, int connfd) {
-  char response[MAXLINE];
+  char response[MAXLINE * 5];
   char *token;
   char *rest_ptr;
   int args_cnt = 0;
@@ -314,12 +314,12 @@ void process_time_status(int *args, char *response) {
     return;
   }
 
-  char status_str[MAXLINE] = "";
-  char temp[100];
-  size_t status_str_len = 0;
-  size_t remaining_space = MAXLINE - 1;
+  char status_str[MAXLINE * 10] = "";
+  char temp[MAXLINE];
+  int end_idx = start_idx + duration;
+  if (end_idx >= NUM_TIME_SLOTS) end_idx = NUM_TIME_SLOTS - 1;
 
-  for (int i = start_idx; i <= start_idx + duration && i < NUM_TIME_SLOTS; i++) {
+  for (int i = start_idx; i <= end_idx; i++) {
     time_slot_t *slot = get_time_slot_by_idx(gate, i);
     if (slot == NULL) {
       snprintf(response, MAXLINE, "Error: Invalid request provided\n");
@@ -329,18 +329,10 @@ void process_time_status(int *args, char *response) {
     char status = (slot->status == 1) ? 'A' : 'F';
     int flight_id = (slot->status == 1) ? slot->plane_id : 0;
 
-    int n = snprintf(temp, sizeof(temp), "AIRPORT %d GATE %d %02d:%02d: %c - %d\n", 
+    snprintf(temp, sizeof(temp), "AIRPORT %d GATE %d %02d:%02d: %c - %d\n", 
       AIRPORT_ID, gate_num, IDX_TO_HOUR(i), IDX_TO_MINS(i), status, flight_id);
 
-    if (n >= remaining_space) {
-      strncat(status_str, temp, remaining_space);
-      break;
-    }
-    else {
-      strcat(status_str, temp);
-      status_str_len += n;
-      remaining_space -= n;
-    }
+    strcat(status_str, temp);
   }
   strcpy(response, status_str);
 }
