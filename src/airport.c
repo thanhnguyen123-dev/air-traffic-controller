@@ -195,31 +195,16 @@ void process_request(char *request_buf, int connfd) {
   }
 
 
-  if (strcmp(command, "SCHEDULE") == 0) {
-    if (args_cnt == 5) {
-      process_schedule(args, response);
-    }
-    else {
-      snprintf(response, MAXLINE, "Error: Invalid request provided\n");
-    }
+  if (strcmp(command, "SCHEDULE") == 0 && args_cnt == 5) {
+    process_schedule(args, response);
   }
 
-  else if (strcmp(command, "PLANE_STATUS") == 0) {
-    if (args_cnt == 2) {
-      process_plane_status(args, response);
-    }
-    else {
-      snprintf(response, MAXLINE, "Error: Invalid request provided\n");
-    }
+  else if (strcmp(command, "PLANE_STATUS") == 0 && args_cnt == 2) {
+    process_plane_status(args, response);
   }
 
-  else if (strcmp(command, "TIME_STATUS") == 0) {
-    if (args_cnt == 4) {
-      process_time_status(args, response);
-    }
-    else {
-      snprintf(response, MAXLINE, "Error: Invalid request provided\n");
-    }
+  else if (strcmp(command, "TIME_STATUS") == 0 && args_cnt == 4) {
+    process_time_status(args, response);
   }
 
   else {
@@ -235,11 +220,6 @@ void process_schedule(int *args, char *response) {
   int earliest_time = args[2]; 
   int duration = args[3];
   int fuel = args[4];
-
-  if (airport_num != AIRPORT_ID) {
-    snprintf(response, MAXLINE, "Error: Airport %d does not exist\n", airport_num);
-    return;
-  }
 
   if (earliest_time < 0 || earliest_time >= NUM_TIME_SLOTS) {
     snprintf(response, MAXLINE, "Error: Invalid 'earliest' time (%d)\n", earliest_time);
@@ -268,11 +248,6 @@ void process_plane_status(int *args, char *response) {
   int airport_num = args[0];
   int plane_id = args[1];
 
-  if (airport_num != AIRPORT_ID) {
-    snprintf(response, MAXLINE, "Error: Airport %d does not exist\n", airport_num);
-    return;
-  }
-
   time_info_t time_info = lookup_plane_in_airport(plane_id);
 
   if (time_info.start_time != -1) {
@@ -291,11 +266,6 @@ void process_time_status(int *args, char *response) {
   int gate_num = args[1];
   int start_idx = args[2];
   int duration = args[3];
-
-  if (airport_num != AIRPORT_ID) {
-    snprintf(response, MAXLINE, "Error: Airport %d does not exist\n", airport_num);
-    return;
-  }
 
   if (gate_num < 0 || gate_num >= AIRPORT_DATA->num_gates) {
     snprintf(response, MAXLINE, "Error: Invalid 'gate' value (%d)\n", gate_num);

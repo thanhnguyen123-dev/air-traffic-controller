@@ -40,18 +40,22 @@ controller_params_t ATC_INFO;
 void controller_server_loop(void) {
   int listenfd = ATC_INFO.listenfd;
   int connfd, airport_id;
-  char buf[MAXLINE], response[MAXLINE], port_str[PORT_STRLEN];
+  char buf[MAXBUF], response[MAXBUF], port_str[PORT_STRLEN];
   rio_t rio, airport_rio;
   struct sockaddr_storage clientaddr;
   socklen_t clientlen = sizeof(struct sockaddr_storage);
   /** TODO: implement this function! */
   while (1) {
     /* ... */
-    connfd = accept(listenfd, (SA *) &clientaddr, &clientlen);
+    if ((connfd = accept(listenfd, (SA *) &clientaddr, &clientlen)) < 0) {
+      perror("accept");
+      continue;
+    }
     rio_readinitb(&rio, connfd);
 
     while (rio_readlineb(&rio, buf, MAXLINE) > 0) {
-      sscanf(buf, "%d", &airport_id);
+      // ignore command arg 
+      sscanf(buf, "%*s %d", &airport_id);
 
       if (airport_id >= 0 && airport_id < ATC_INFO.num_airports) {
         snprintf(port_str, PORT_STRLEN, "%d", ATC_INFO.airport_nodes[airport_id].port);
