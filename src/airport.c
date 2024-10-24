@@ -201,7 +201,6 @@ void process_request(char *request_buf, int connfd) {
 }
 
 void process_schedule(int *args, char *response) {
-  int airport_num = args[0];
   int plane_id = args[1];
   int earliest_time = args[2]; 
   int duration = args[3];
@@ -231,7 +230,6 @@ void process_schedule(int *args, char *response) {
 }
 
 void process_plane_status(int *args, char *response) {
-  int airport_num = args[0];
   int plane_id = args[1];
 
   time_info_t time_info = lookup_plane_in_airport(plane_id);
@@ -243,12 +241,11 @@ void process_plane_status(int *args, char *response) {
       IDX_TO_HOUR(time_info.end_time), IDX_TO_MINS(time_info.end_time));
   }
   else {
-    snprintf(response, MAXLINE, "PLANE %d not scheduled at airport %d\n", plane_id, airport_num);
+    snprintf(response, MAXLINE, "PLANE %d not scheduled at airport %d\n", plane_id, AIRPORT_ID);
   }
 }
 
 void process_time_status(int *args, char *response) {
-  int airport_num = args[0];
   int gate_num = args[1];
   int start_idx = args[2];
   int duration = args[3];

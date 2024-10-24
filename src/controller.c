@@ -41,7 +41,7 @@ void controller_server_loop(void) {
   int listenfd = ATC_INFO.listenfd;
   int connfd, airport_id;
   char buf[MAXBUF], response[MAXBUF], port_str[PORT_STRLEN];
-  rio_t rio, airport_rio;
+  rio_t controller_rio, airport_rio;
   struct sockaddr_storage clientaddr;
   socklen_t clientlen = sizeof(struct sockaddr_storage);
   /** TODO: implement this function! */
@@ -51,9 +51,9 @@ void controller_server_loop(void) {
       perror("accept");
       continue;
     }
-    rio_readinitb(&rio, connfd);
+    rio_readinitb(&controller_rio, connfd);
 
-    while (rio_readlineb(&rio, buf, MAXLINE) > 0) {
+    while (rio_readlineb(&controller_rio, buf, MAXLINE) > 0) {
       char command[20];
       int args[5];
       int toks_cnt = sscanf(buf, "%s %d %d %d %d %d", command, &args[0], &args[1], &args[2], &args[3], &args[4]);
