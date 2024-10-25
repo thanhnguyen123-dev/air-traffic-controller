@@ -26,7 +26,26 @@
 #define IDX_TO_HOUR(idx) (((idx) >> 1))
 #define IDX_TO_MINS(idx) ((idx) & 1 ? 30lu : 0lu)
 
+/* Number of threads in thread pool */
+#define NUM_THREADS 3
+
 /** Struct Definitions for airports and their schedules. **/
+
+/* Thread pool shared queue structure*/
+struct shared_queue_t {
+  pthread_mutex_t lock;
+  pthread_cond_t slots, items; // conditional variables
+  int front, rear, count, n;
+  int *fds_buf; // Buffer to store file descriptors
+};
+
+typedef struct shared_queue_t shared_queue_t;
+
+/* Thread pool helper functions */
+void init_shared_queue(shared_queue_t *s_que, int n);
+void add_client_connection(shared_queue_t *s_que, int connfd);
+int get_client_connection(shared_queue_t *s_que);
+void *thread_routine(void *arg);
 
 typedef struct airport_t airport_t;
 

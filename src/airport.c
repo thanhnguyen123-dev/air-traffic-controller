@@ -301,4 +301,43 @@ int is_valid_time_status_request(char *command, int toks_cnt) {
   return strcmp(command, "TIME_STATUS") == 0 && toks_cnt == 5;
 }
 
+void init_shared_queue(shared_queue_t *s_que, int n) {
+  s_que->n = n;
+  s_que->front = s_que->rear = 0;
+  s_que->fds_buf = calloc(n, sizeof(int));
+  pthread_mutex_init(&s_que->lock, NULL);
+  pthread_cond_init(&s_que->slots, NULL);
+  pthread_cond_init(&s_que->items, NULL);
+}
+
+void add_client_connection(shared_queue_t *s_que, int connfd) {
+  pthread_mutex_lock(&s_que->lock);
+  while (s_que->count == s_que->n) {
+    pthread_cond_wait(&s_que->slots, &s_que->lock);
+  }
+
+  // add connfd to the buffer
+  s_que->fds_buf[(++s_que->rear) % s_que->n] = connfd;
+  s_que->count++;
+
+  pthread_cond_signal(&s_que->items);
+  pthread_mutex_unlock(&s_que->lock);
+}
+
+int get_client_connection(shared_queue_t *s_que) {
+  int connfd;
+  pthread_mutex_lock(&s_que->lock);
+  while (s_que->count == 0) {
+    pthread_cond_wait(&s_que->items, &s_que->lock);
+  }
+
+  // remove connfd from the buffer
+  connfd = s_que->fds_buf[(s_que->front++) % s_que->n];
+  s_que->count--;
+
+  pthread_cond_signal(&s_que->slots);
+  pthread_mutex_unlock(&s_que->lock);
+  return connfd;
+}
+
 
