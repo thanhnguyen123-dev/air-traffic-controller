@@ -17,6 +17,9 @@ static int AIRPORT_ID = -1;
 /* This will be set by the `initialise_node` function. */
 static airport_t *AIRPORT_DATA = NULL;
 
+/* Shared queue */
+shared_queue_t shared_queue;
+
 gate_t *get_gate_by_idx(int gate_idx) {
   if ((gate_idx) < 0 || (gate_idx > AIRPORT_DATA->num_gates))
     return NULL;
@@ -144,19 +147,38 @@ void initialise_node(int airport_id, int num_gates, int listenfd) {
 }
 
 void airport_node_loop(int listenfd) {
-  /** TODO: implement the main server loop for an individual airport node here. */
+  init_shared_queue(&shared_queue, 20);
+
+  pthread_t tid[NUM_THREADS];
+  for (int i = 0; i < NUM_THREADS; i++) {
+    if (pthread_create(&tid[i], NULL, thread_routine, &shared_queue) != 0) {
+      perror("pthread_create");
+      exit(1);
+    }
+  }
+
   int connfd;
-  char buf[MAXBUF];
-  rio_t rio;
   struct sockaddr_storage clientaddr;
   socklen_t clientlen = sizeof(struct sockaddr_storage);
 
   while (1) {
-    /* ... */
     if ((connfd = accept(listenfd, (SA *)&clientaddr, &clientlen)) < 0) {
       perror("accept");
       continue;
     }
+    add_client_connection(&shared_queue, connfd);
+  }
+
+  deinit_shared_queue(&shared_queue);
+}
+
+void *thread_routine(void *arg) {
+  shared_queue_t *s_que = (shared_queue_t *)arg;
+  int connfd;
+  char buf[MAXBUF];
+  rio_t rio;
+  while (1) {
+    connfd = get_client_connection(s_que);
 
     rio_readinitb(&rio, connfd);
     ssize_t n;
@@ -167,10 +189,9 @@ void airport_node_loop(int listenfd) {
       }
       process_request(buf, connfd);
     }
-
     close(connfd);
-
   }
+  return NULL;
 }
 
 void process_request(char *request_buf, int connfd) {
@@ -303,11 +324,19 @@ int is_valid_time_status_request(char *command, int toks_cnt) {
 
 void init_shared_queue(shared_queue_t *s_que, int n) {
   s_que->n = n;
+  s_que->count = 0;
   s_que->front = s_que->rear = 0;
   s_que->fds_buf = calloc(n, sizeof(int));
   pthread_mutex_init(&s_que->lock, NULL);
   pthread_cond_init(&s_que->slots, NULL);
   pthread_cond_init(&s_que->items, NULL);
+}
+
+void deinit_shared_queue(shared_queue_t *s_que) {
+  free(s_que->fds_buf);
+  pthread_mutex_destroy(&s_que->lock);
+  pthread_cond_destroy(&s_que->slots);
+  pthread_cond_destroy(&s_que->items);
 }
 
 void add_client_connection(shared_queue_t *s_que, int connfd) {
@@ -316,8 +345,8 @@ void add_client_connection(shared_queue_t *s_que, int connfd) {
     pthread_cond_wait(&s_que->slots, &s_que->lock);
   }
 
-  // add connfd to the buffer
-  s_que->fds_buf[(++s_que->rear) % s_que->n] = connfd;
+  s_que->fds_buf[s_que->rear] = connfd;
+  s_que->rear = (s_que->rear + 1) % s_que->n;  
   s_que->count++;
 
   pthread_cond_signal(&s_que->items);
@@ -331,13 +360,12 @@ int get_client_connection(shared_queue_t *s_que) {
     pthread_cond_wait(&s_que->items, &s_que->lock);
   }
 
-  // remove connfd from the buffer
-  connfd = s_que->fds_buf[(s_que->front++) % s_que->n];
+  connfd = s_que->fds_buf[s_que->front];
+  s_que->front = (s_que->front + 1) % s_que->n;
   s_que->count--;
 
   pthread_cond_signal(&s_que->slots);
   pthread_mutex_unlock(&s_que->lock);
   return connfd;
 }
-
 

@@ -27,7 +27,7 @@
 #define IDX_TO_MINS(idx) ((idx) & 1 ? 30lu : 0lu)
 
 /* Number of threads in thread pool */
-#define NUM_THREADS 3
+#define NUM_THREADS 10
 
 /** Struct Definitions for airports and their schedules. **/
 
@@ -46,6 +46,7 @@ void init_shared_queue(shared_queue_t *s_que, int n);
 void add_client_connection(shared_queue_t *s_que, int connfd);
 int get_client_connection(shared_queue_t *s_que);
 void *thread_routine(void *arg);
+void deinit_shared_queue(shared_queue_t *s_que);
 
 typedef struct airport_t airport_t;
 
