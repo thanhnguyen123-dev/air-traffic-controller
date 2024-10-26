@@ -61,6 +61,8 @@ struct time_slot_t {
   /* When occupied, this is the index of the time slot in which the plane will
    * leave this gate. */
   int end_time;
+  /* Mutex lock for the time slot */
+  pthread_mutex_t lock;
 };
 
 typedef struct time_slot_t time_slot_t;

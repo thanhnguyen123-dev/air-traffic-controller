@@ -37,17 +37,23 @@ time_slot_t *get_time_slot_by_idx(gate_t *gate, int slot_idx) {
 int check_time_slots_free(gate_t *gate, int start_idx, int end_idx) {
   time_slot_t *ts;
   int idx;
+  int is_free = 1;
   for (idx = start_idx; idx <= end_idx; idx++) {
     ts = get_time_slot_by_idx(gate, idx);
-    if (ts->status == 1)
-      return 0;
+    pthread_mutex_lock(&ts->lock);
+    if (ts->status == 1) {
+      is_free = 0;
+    }
+    pthread_mutex_unlock(&ts->lock);
+    if (!is_free) break;
   }
-  return 1;
+  return is_free;
 }
 
 int set_time_slot(time_slot_t *ts, int plane_id, int start_idx, int end_idx) {
-  if (ts->status == 1)
+  if (ts->status == 1) {
     return -1;
+  }
   ts->status = 1; /* Set to be occupied */
   ts->plane_id = plane_id;
   ts->start_time = start_idx;
@@ -60,7 +66,9 @@ int add_plane_to_slots(gate_t *gate, int plane_id, int start, int count) {
   time_slot_t *ts = NULL;
   for (int idx = start; idx <= end; idx++) {
     ts = get_time_slot_by_idx(gate, idx);
+    pthread_mutex_lock(&ts->lock);
     ret = set_time_slot(ts, plane_id, start, end);
+    pthread_mutex_unlock(&ts->lock);
     if (ret < 0) break;
   }
   return ret;
@@ -71,12 +79,16 @@ int search_gate(gate_t *gate, int plane_id) {
   time_slot_t *ts = NULL;
   for (idx = 0; idx < NUM_TIME_SLOTS; idx = next_idx) {
     ts = get_time_slot_by_idx(gate, idx);
+    pthread_mutex_lock(&ts->lock);
     if (ts->status == 0) {
       next_idx = idx + 1;
+      pthread_mutex_unlock(&ts->lock);
     } else if (ts->plane_id == plane_id) {
+      pthread_mutex_unlock(&ts->lock);
       return idx;
     } else {
       next_idx = ts->end_time + 1;
+      pthread_mutex_unlock(&ts->lock);
     }
   }
   return -1;
@@ -133,8 +145,14 @@ airport_t *create_airport(int num_gates) {
     memsize = sizeof(airport_t) + (sizeof(gate_t) * (unsigned)num_gates);
     data = calloc(1, memsize);
   }
-  if (data)
+  if (data) {
     data->num_gates = num_gates;
+    for (int gate_idx = 0; gate_idx < num_gates; gate_idx++) {
+      for (int slot_idx = 0; slot_idx < NUM_TIME_SLOTS; slot_idx++) {
+        pthread_mutex_init(&data->gates[gate_idx].time_slots[slot_idx].lock, NULL);
+      }
+    }
+  }
   return data;
 }
 
@@ -173,6 +191,7 @@ void airport_node_loop(int listenfd) {
 }
 
 void *thread_routine(void *arg) {
+  pthread_detach(pthread_self());
   shared_queue_t *s_que = (shared_queue_t *)arg;
   int connfd;
   char buf[MAXBUF];
@@ -217,7 +236,6 @@ void process_request(char *request_buf, int connfd) {
   else {
     snprintf(response, MAXLINE, "Error: Invalid request provided\n");
   }
-
   rio_writen(connfd, response, strlen(response));
 }
 
