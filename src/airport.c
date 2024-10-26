@@ -255,6 +255,11 @@ void process_schedule(int *args, char *response) {
     return;
   }
 
+  if (fuel < 0) {
+    snprintf(response, MAXLINE, "Error: Invalid 'fuel' value (%d)\n", fuel);
+    return;
+  }
+
   time_info_t time_info = schedule_plane(plane_id, earliest_time, duration, fuel);
 
   if (time_info.start_time != -1) {
