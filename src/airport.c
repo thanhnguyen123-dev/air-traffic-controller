@@ -169,7 +169,7 @@ void airport_node_loop(int listenfd) {
 
   pthread_t tid[NUM_THREADS];
   for (int i = 0; i < NUM_THREADS; i++) {
-    if (pthread_create(&tid[i], NULL, thread_routine, &shared_queue) != 0) {
+    if (pthread_create(&tid[i], NULL, airport_thread_routine, &shared_queue) < 0) {
       perror("pthread_create");
       exit(1);
     }
@@ -190,7 +190,7 @@ void airport_node_loop(int listenfd) {
   deinit_shared_queue(&shared_queue);
 }
 
-void *thread_routine(void *arg) {
+void *airport_thread_routine(void *arg) {
   pthread_detach(pthread_self());
   shared_queue_t *s_que = (shared_queue_t *)arg;
   int connfd;
@@ -198,6 +198,7 @@ void *thread_routine(void *arg) {
   rio_t rio;
   while (1) {
     connfd = get_client_connection(s_que);
+    LOG("Thread %lu: Handling new connection\n", (unsigned long)pthread_self());
 
     rio_readinitb(&rio, connfd);
     ssize_t n;
@@ -206,8 +207,10 @@ void *thread_routine(void *arg) {
       if (strcmp(buf, "\n") == 0) {
         break;
       }
+      LOG("Thread %lu: Processing request: %s", (unsigned long)pthread_self(), buf);
       process_request(buf, connfd);
     }
+    LOG("Thread %lu: Closing connection\n", (unsigned long)pthread_self());
     close(connfd);
   }
   return NULL;

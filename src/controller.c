@@ -33,31 +33,60 @@ typedef struct controller_params_t {
 
 controller_params_t ATC_INFO;
 
+shared_queue_t controller_shared_queue;
+
 /** @brief The main server loop of the controller.
  *
  *  @todo  Implement this function!
  */
 void controller_server_loop(void) {
-  int listenfd = ATC_INFO.listenfd;
-  int connfd, airport_id;
-  char buf[MAXBUF], response[MAXBUF], port_str[PORT_STRLEN];
-  rio_t controller_rio, airport_rio;
+  init_shared_queue(&controller_shared_queue, 20);
+
+  pthread_t tid[NUM_THREADS];
+  for (int i = 0; i < NUM_THREADS; i++) {
+    if (pthread_create(&tid[i], NULL, controller_thread_routine, &controller_shared_queue) != 0) {
+      perror("pthread_create");
+      exit(1);
+    }
+  }
+
+  int connfd;
   struct sockaddr_storage clientaddr;
   socklen_t clientlen = sizeof(struct sockaddr_storage);
-  /** TODO: implement this function! */
+
   while (1) {
-    /* ... */
-    if ((connfd = accept(listenfd, (SA *) &clientaddr, &clientlen)) < 0) {
+    if ((connfd = accept(ATC_INFO.listenfd, (SA *)&clientaddr, &clientlen)) < 0) {
       perror("accept");
       continue;
     }
+    add_client_connection(&controller_shared_queue, connfd);
+  }
+
+  deinit_shared_queue(&controller_shared_queue);
+}
+
+void *controller_thread_routine(void *arg) {
+  pthread_detach(pthread_self());
+  shared_queue_t *s_que = (shared_queue_t *)arg;
+  int connfd, airport_id;
+  char buf[MAXBUF];
+  rio_t controller_rio, airport_rio;
+
+  while (1) {
+    connfd = get_client_connection(s_que);
+
     rio_readinitb(&controller_rio, connfd);
-
-    while (rio_readlineb(&controller_rio, buf, MAXLINE) > 0) {
-      char command[20];
+    ssize_t n;
+    while ((n = rio_readlineb(&controller_rio, buf, MAXLINE)) > 0) {
+      buf[n] = '\0';
+      if (strcmp(buf, "\n") == 0) {
+        break;
+      }
+      
+      char command[20], response[MAXBUF], port_str[PORT_STRLEN];
       int args[5];
-      int toks_cnt = sscanf(buf, "%s %d %d %d %d %d", command, &args[0], &args[1], &args[2], &args[3], &args[4]);
-
+      int toks_cnt;
+      toks_cnt = sscanf(buf, "%s %d %d %d %d %d", command, &args[0], &args[1], &args[2], &args[3], &args[4]);
       if (is_valid_schedule_request(command, toks_cnt) ||
           is_valid_plane_status_request(command, toks_cnt) ||
           is_valid_time_status_request(command, toks_cnt)) {
@@ -77,12 +106,12 @@ void controller_server_loop(void) {
 
         rio_writen(airport_fd, buf, strlen(buf));
         rio_writen(airport_fd, "\n", 1);
-        
+
         ssize_t n;
         while ((n = rio_readlineb(&airport_rio, response, MAXLINE)) > 0) {
           rio_writen(connfd, response, n);
         }
-        
+
         close(airport_fd);
       }
       else {
@@ -92,6 +121,7 @@ void controller_server_loop(void) {
     }
     close(connfd);
   }
+  return NULL;
 }
 
 /** @brief A handler for reaping child processes (individual airport nodes).
