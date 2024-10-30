@@ -42,6 +42,7 @@ shared_queue_t controller_shared_queue;
 void controller_server_loop(void) {
   init_shared_queue(&controller_shared_queue, 20);
 
+  // Create worker threads for the controller
   pthread_t tid[NUM_THREADS];
   for (int i = 0; i < NUM_THREADS; i++) {
     if (pthread_create(&tid[i], NULL, controller_thread_routine, &controller_shared_queue) != 0) {
@@ -54,6 +55,7 @@ void controller_server_loop(void) {
   struct sockaddr_storage clientaddr;
   socklen_t clientlen = sizeof(struct sockaddr_storage);
 
+  // Accept connections from the airports
   while (1) {
     if ((connfd = accept(ATC_INFO.listenfd, (SA *)&clientaddr, &clientlen)) < 0) {
       perror("accept");
@@ -73,24 +75,34 @@ void *controller_thread_routine(void *arg) {
   rio_t controller_rio, airport_rio;
 
   while (1) {
+    // Get a connection from the shared queue
     connfd = get_client_connection(s_que);
 
+    // Initialize the Rio buffer for the controller
     rio_readinitb(&controller_rio, connfd);
     ssize_t n;
+
+    // Read the request from the connection
     while ((n = rio_readlineb(&controller_rio, buf, MAXLINE)) > 0) {
+      // Null-terminate the buffer
       buf[n] = '\0';
+
+      // If the request is an empty line, break
       if (strcmp(buf, "\n") == 0) {
         break;
       }
-      
+
+      // Extract the command and the arguments from the request
       char command[20], response[MAXBUF], port_str[PORT_STRLEN];
       int args[5];
       int toks_cnt;
       toks_cnt = sscanf(buf, "%s %d %d %d %d %d", command, &args[0], &args[1], &args[2], &args[3], &args[4]);
+
+      // If the request is valid, extract the airport id
       if (is_valid_schedule_request(command, toks_cnt) ||
           is_valid_plane_status_request(command, toks_cnt) ||
           is_valid_time_status_request(command, toks_cnt)) {
-        airport_id = args[0];
+        airport_id = args[0]; 
       }
       else {
         sprintf(response, "Error: Invalid request provided\n");
@@ -98,15 +110,19 @@ void *controller_thread_routine(void *arg) {
         continue;
       }
 
+      // If the airport id is valid, open a connection to the airport
       if (airport_id >= 0 && airport_id < ATC_INFO.num_airports) {
         snprintf(port_str, PORT_STRLEN, "%d", ATC_INFO.airport_nodes[airport_id].port);
         int airport_fd = open_clientfd("localhost", port_str);
 
+        // Initialize the Rio buffer for the airport
         rio_readinitb(&airport_rio, airport_fd);
 
+        // Send the request to the airport
         rio_writen(airport_fd, buf, strlen(buf));
         rio_writen(airport_fd, "\n", 1);
 
+        // Read the response from the airport
         ssize_t n;
         while ((n = rio_readlineb(&airport_rio, response, MAXLINE)) > 0) {
           rio_writen(connfd, response, n);

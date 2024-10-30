@@ -167,6 +167,7 @@ void initialise_node(int airport_id, int num_gates, int listenfd) {
 void airport_node_loop(int listenfd) {
   init_shared_queue(&shared_queue, 20);
 
+  // Create worker threads for the airport node
   pthread_t tid[NUM_THREADS];
   for (int i = 0; i < NUM_THREADS; i++) {
     if (pthread_create(&tid[i], NULL, airport_thread_routine, &shared_queue) < 0) {
@@ -175,6 +176,7 @@ void airport_node_loop(int listenfd) {
     }
   }
 
+  // Accept connections from the controller
   int connfd;
   struct sockaddr_storage clientaddr;
   socklen_t clientlen = sizeof(struct sockaddr_storage);
@@ -193,23 +195,33 @@ void airport_node_loop(int listenfd) {
 void *airport_thread_routine(void *arg) {
   pthread_detach(pthread_self());
   shared_queue_t *s_que = (shared_queue_t *)arg;
+
+  // Handle requests from the controller
   int connfd;
   char buf[MAXBUF];
   rio_t rio;
   while (1) {
+    // Get a connection from the shared queue
     connfd = get_client_connection(s_que);
     LOG("Thread %lu: Handling new connection\n", (unsigned long)pthread_self());
 
     rio_readinitb(&rio, connfd);
     ssize_t n;
+
+    // Read the request from the connection
     while ((n = rio_readlineb(&rio, buf, MAXLINE)) > 0) {
+      // Null-terminate the buffer
       buf[n] = '\0';
+      
+      // If the request is an empty line, break
       if (strcmp(buf, "\n") == 0) {
         break;
       }
       LOG("Thread %lu: Processing request: %s", (unsigned long)pthread_self(), buf);
       process_request(buf, connfd);
     }
+
+    // Close the connection
     LOG("Thread %lu: Closing connection\n", (unsigned long)pthread_self());
     close(connfd);
   }
@@ -243,6 +255,7 @@ void process_request(char *request_buf, int connfd) {
 }
 
 void process_schedule(int *args, char *response) {
+  // Extract the arguments from the request
   int plane_id = args[1];
   int earliest_time = args[2]; 
   int duration = args[3];
@@ -265,6 +278,7 @@ void process_schedule(int *args, char *response) {
 
   time_info_t time_info = schedule_plane(plane_id, earliest_time, duration, fuel);
 
+  // Format the response if the plane was scheduled
   if (time_info.start_time != -1) {
     snprintf(response, MAXLINE, "SCHEDULED %d at GATE %d: %02d:%02d-%02d:%02d\n", 
       plane_id, time_info.gate_number, 
@@ -277,10 +291,12 @@ void process_schedule(int *args, char *response) {
 }
 
 void process_plane_status(int *args, char *response) {
+  // Extract the arguments from the request
   int plane_id = args[1];
 
   time_info_t time_info = lookup_plane_in_airport(plane_id);
 
+  // Format the response if the plane was scheduled
   if (time_info.start_time != -1) {
     snprintf(response, MAXLINE, "PLANE %d scheduled at GATE %d: %02d:%02d-%02d:%02d\n",
       plane_id, time_info.gate_number, 
@@ -293,6 +309,7 @@ void process_plane_status(int *args, char *response) {
 }
 
 void process_time_status(int *args, char *response) {
+  // Extract the arguments from the request
   int gate_num = args[1];
   int start_idx = args[2];
   int duration = args[3];
@@ -307,18 +324,20 @@ void process_time_status(int *args, char *response) {
     return;
   }
 
-
+  // Get the gate from the gate index
   gate_t *gate = get_gate_by_idx(gate_num);
   if (gate == NULL) {
     snprintf(response, MAXLINE, "Error: Invalid 'gate' value (%d)\n", gate_num);
     return;
   }
 
+  // Temporary string to store the status of the gate
   char status_str[MAXBUF] = "";
   int end_idx = start_idx + duration;
 
   for (int i = start_idx; i <= end_idx; i++) {
     time_slot_t *slot = get_time_slot_by_idx(gate, i);
+
     pthread_mutex_lock(&slot->lock);
     if (slot == NULL) {
       snprintf(response, MAXLINE, "Error: Invalid request provided\n");
@@ -326,11 +345,14 @@ void process_time_status(int *args, char *response) {
       return;
     }
 
+    // Get the status of the slot and the flight id
     char status = (slot->status == 1) ? 'A' : 'F';
     int flight_id = (slot->status == 1) ? slot->plane_id : 0;
 
     pthread_mutex_unlock(&slot->lock);
     char line[MAXLINE];
+
+    // Format the response line to be added to the status string
     snprintf(line, sizeof(line), "AIRPORT %d GATE %d %02d:%02d: %c - %d\n", 
       AIRPORT_ID, gate_num, IDX_TO_HOUR(i), IDX_TO_MINS(i), status, flight_id);
 
@@ -340,14 +362,20 @@ void process_time_status(int *args, char *response) {
 }
 
 int is_valid_schedule_request(char *command, int toks_cnt) {
+  // Check if the command is "SCHEDULE" and the number of tokens is 6
+  // toks_cnt = 1 (for command) + 5 (for args)
   return strcmp(command, "SCHEDULE") == 0 && toks_cnt == 6;
 }
 
 int is_valid_plane_status_request(char *command, int toks_cnt) {
+  // Check if the command is "PLANE_STATUS" and the number of tokens is 3
+  // toks_cnt = 1 (for command) + 2 (for args)
   return strcmp(command, "PLANE_STATUS") == 0 && toks_cnt == 3;
 }
 
 int is_valid_time_status_request(char *command, int toks_cnt) {
+  // Check if the command is "TIME_STATUS" and the number of tokens is 5
+  // toks_cnt = 1 (for command) + 4 (for args)
   return strcmp(command, "TIME_STATUS") == 0 && toks_cnt == 5;
 }
 
@@ -374,10 +402,12 @@ void add_client_connection(shared_queue_t *s_que, int connfd) {
     pthread_cond_wait(&s_que->slots, &s_que->lock);
   }
 
+  // Add the file descriptor to the rear of the queue
   s_que->fds_buf[s_que->rear] = connfd;
   s_que->rear = (s_que->rear + 1) % s_que->n;  
   s_que->count++;
 
+  // Signal the thread that there is an item in the queue
   pthread_cond_signal(&s_que->items);
   pthread_mutex_unlock(&s_que->lock);
 }
@@ -388,11 +418,13 @@ int get_client_connection(shared_queue_t *s_que) {
   while (s_que->count == 0) {
     pthread_cond_wait(&s_que->items, &s_que->lock);
   }
-
+  
+  // Remove the file descriptor from the front of the queue
   connfd = s_que->fds_buf[s_que->front];
   s_que->front = (s_que->front + 1) % s_que->n;
   s_que->count--;
 
+  // Signal the thread that there is a slot in the queue
   pthread_cond_signal(&s_que->slots);
   pthread_mutex_unlock(&s_que->lock);
   return connfd;

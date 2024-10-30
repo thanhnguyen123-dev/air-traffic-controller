@@ -41,14 +41,6 @@ struct shared_queue_t {
 
 typedef struct shared_queue_t shared_queue_t;
 
-/* Thread pool helper functions */
-void init_shared_queue(shared_queue_t *s_que, int n);
-void add_client_connection(shared_queue_t *s_que, int connfd);
-int get_client_connection(shared_queue_t *s_que);
-void *airport_thread_routine(void *arg);
-void *controller_thread_routine(void *arg);
-void deinit_shared_queue(shared_queue_t *s_que);
-
 typedef struct airport_t airport_t;
 
 struct time_slot_t {
@@ -228,12 +220,91 @@ time_info_t schedule_plane(int plane_id, int start, int duration, int fuel);
  */
 void airport_node_loop(int listenfd);
 
+/** @brief Process the request from controller *
+ * @param request_buf The buffer containing the request from controller
+ * @param connfd The file descriptor of the connection to the controller
+ * /
 void process_request(char *request_buf, int connfd);
+
+/** @brief Process the schedule request 
+ * @param args The arguments array of the request 
+ * @param response The response buffer to store the response to the controller
+*/
 void process_schedule(int *args, char *response);
+
+/** 
+ * @brief Process the plane status request
+ * @param args The arguments array of the request 
+ * @param response The response buffer to store the response to the controller
+*/
 void process_plane_status(int *args, char *response);
+
+/** 
+ * @brief Process the time status request
+ * @param args The arguments array of the request 
+ * @param response The response buffer to store the response to the controller
+*/
 void process_time_status(int *args, char *response);
+
+/** 
+ * @brief Check if the schedule request is valid
+ * @param command The command string of the request
+ * @param toks_cnt The number of tokens in the request where toks_cnt = 1 (for command) + 5 (for args)
+ * @return 1 if the request is valid, 0 otherwise
+*/
 int is_valid_schedule_request(char *command, int toks_cnt);
+
+/** 
+ * @brief Check if the plane status request is valid
+ * @param command The command string of the request
+ * @param toks_cnt The number of tokens in the request where toks_cnt = 1 (for command) + 2 (for args)
+ * @return 1 if the request is valid, 0 otherwise
+*/
 int is_valid_plane_status_request(char *command, int toks_cnt);
+
+/**
+ * @brief Check if the time status request is valid
+ * @param command The command string of the request
+ * @param toks_cnt The number of tokens in the request where toks_cnt = 1 (for command) + 4 (for args)
+ * @return 1 if the request is valid, 0 otherwise
+*/
 int is_valid_time_status_request(char *command, int toks_cnt);
+
+/* Thread pool helper functions */
+
+/** @brief Initialize the shared queue 
+ * @param s_que The shared queue to initialize
+ * @param n The size of the shared queue
+*/
+void init_shared_queue(shared_queue_t *s_que, int n);
+
+/** @brief Add a client connection to the shared queue
+ * @param s_que The shared queue to add the connection to
+ * @param connfd The file descriptor of the connection to add
+*/
+void add_client_connection(shared_queue_t *s_que, int connfd);
+
+/** @brief Get a client connection from the shared queue
+ * @param s_que The shared queue to get the connection from
+ * @return The file descriptor of the connection
+*/
+int get_client_connection(shared_queue_t *s_que);
+
+/** @brief The thread routine for the airport node
+ * @param arg The argument to the thread routine
+ * @return NULL
+*/
+void *airport_thread_routine(void *arg);
+
+/** @brief The thread routine for the controller node
+ * @param arg The argument to the thread routine
+ * @return NULL
+*/
+void *controller_thread_routine(void *arg);
+
+/** @brief Deinitialize the shared queue
+ * @param s_que The shared queue to deinitialize
+*/
+void deinit_shared_queue(shared_queue_t *s_que);
 
 #endif
