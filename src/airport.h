@@ -27,7 +27,7 @@
 #define IDX_TO_MINS(idx) ((idx) & 1 ? 30lu : 0lu)
 
 /* Number of threads in thread pool */
-#define NUM_THREADS 100
+#define NUM_THREADS 16
 
 /** Struct Definitions for airports and their schedules. **/
 

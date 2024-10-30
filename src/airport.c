@@ -319,14 +319,17 @@ void process_time_status(int *args, char *response) {
 
   for (int i = start_idx; i <= end_idx; i++) {
     time_slot_t *slot = get_time_slot_by_idx(gate, i);
+    pthread_mutex_lock(&slot->lock);
     if (slot == NULL) {
       snprintf(response, MAXLINE, "Error: Invalid request provided\n");
+      pthread_mutex_unlock(&slot->lock);
       return;
     }
 
     char status = (slot->status == 1) ? 'A' : 'F';
     int flight_id = (slot->status == 1) ? slot->plane_id : 0;
 
+    pthread_mutex_unlock(&slot->lock);
     char line[MAXLINE];
     snprintf(line, sizeof(line), "AIRPORT %d GATE %d %02d:%02d: %c - %d\n", 
       AIRPORT_ID, gate_num, IDX_TO_HOUR(i), IDX_TO_MINS(i), status, flight_id);
