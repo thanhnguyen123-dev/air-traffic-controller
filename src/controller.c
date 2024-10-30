@@ -61,7 +61,7 @@ void controller_server_loop(void) {
       perror("accept");
       continue;
     }
-    add_client_connection(&controller_shared_queue, connfd);
+    add_connection(&controller_shared_queue, connfd);
   }
 
   deinit_shared_queue(&controller_shared_queue);
@@ -76,7 +76,7 @@ void *controller_thread_routine(void *arg) {
 
   while (1) {
     // Get a connection from the shared queue
-    connfd = get_client_connection(s_que);
+    connfd = get_connection(s_que);
 
     // Initialize the Rio buffer for the controller
     rio_readinitb(&controller_rio, connfd);

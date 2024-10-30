@@ -27,7 +27,7 @@
 #define IDX_TO_MINS(idx) ((idx) & 1 ? 30lu : 0lu)
 
 /* Number of threads in thread pool */
-#define NUM_THREADS 16
+#define NUM_THREADS 8
 
 /** Struct Definitions for airports and their schedules. **/
 
@@ -223,7 +223,7 @@ void airport_node_loop(int listenfd);
 /** @brief Process the request from controller *
  * @param request_buf The buffer containing the request from controller
  * @param connfd The file descriptor of the connection to the controller
- * /
+ */
 void process_request(char *request_buf, int connfd);
 
 /** @brief Process the schedule request 
@@ -282,13 +282,13 @@ void init_shared_queue(shared_queue_t *s_que, int n);
  * @param s_que The shared queue to add the connection to
  * @param connfd The file descriptor of the connection to add
 */
-void add_client_connection(shared_queue_t *s_que, int connfd);
+void add_connection(shared_queue_t *s_que, int connfd);
 
 /** @brief Get a client connection from the shared queue
  * @param s_que The shared queue to get the connection from
  * @return The file descriptor of the connection
 */
-int get_client_connection(shared_queue_t *s_que);
+int get_connection(shared_queue_t *s_que);
 
 /** @brief The thread routine for the airport node
  * @param arg The argument to the thread routine

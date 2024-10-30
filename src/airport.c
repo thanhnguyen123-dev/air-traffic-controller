@@ -186,7 +186,7 @@ void airport_node_loop(int listenfd) {
       perror("accept");
       continue;
     }
-    add_client_connection(&shared_queue, connfd);
+    add_connection(&shared_queue, connfd);
   }
 
   deinit_shared_queue(&shared_queue);
@@ -202,7 +202,7 @@ void *airport_thread_routine(void *arg) {
   rio_t rio;
   while (1) {
     // Get a connection from the shared queue
-    connfd = get_client_connection(s_que);
+    connfd = get_connection(s_que);
     LOG("Thread %lu: Handling new connection\n", (unsigned long)pthread_self());
 
     rio_readinitb(&rio, connfd);
@@ -396,7 +396,7 @@ void deinit_shared_queue(shared_queue_t *s_que) {
   pthread_cond_destroy(&s_que->items);
 }
 
-void add_client_connection(shared_queue_t *s_que, int connfd) {
+void add_connection(shared_queue_t *s_que, int connfd) {
   pthread_mutex_lock(&s_que->lock);
   while (s_que->count == s_que->n) {
     pthread_cond_wait(&s_que->slots, &s_que->lock);
@@ -412,7 +412,7 @@ void add_client_connection(shared_queue_t *s_que, int connfd) {
   pthread_mutex_unlock(&s_que->lock);
 }
 
-int get_client_connection(shared_queue_t *s_que) {
+int get_connection(shared_queue_t *s_que) {
   int connfd;
   pthread_mutex_lock(&s_que->lock);
   while (s_que->count == 0) {
